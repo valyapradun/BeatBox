@@ -5,6 +5,12 @@ import java.awt.GridLayout;
 import java.awt.Label;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 
 import javax.sound.midi.MidiEvent;
@@ -18,6 +24,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
@@ -65,6 +72,14 @@ public class BeatBox {
 		JButton downTempo = new JButton("Tempo Down");
 		downTempo.addActionListener(new DownTempoListener());
 		buttonBox.add(downTempo);
+		
+		JButton serialize = new JButton("Serialize It");
+		serialize.addActionListener(new SerializeListener());
+		buttonBox.add(serialize);
+		
+		JButton restore = new JButton("Restore");
+		restore.addActionListener(new RestoreListener());
+		buttonBox.add(restore);
 
 		Box nameBox = new Box(BoxLayout.Y_AXIS);
 		for (int i = 0; i < 16; i++) {
@@ -90,7 +105,7 @@ public class BeatBox {
 		}
 
 		setUpMidi();
-
+		
 		frame.setBounds(50, 50, 300, 300);
 		frame.pack();
 		frame.setVisible(true);
@@ -117,17 +132,14 @@ public class BeatBox {
 
 		for (int i = 0; i < 16; i++) {
 			trackList = new int[16];
-			System.out.println("aaa");
 			int key = instruments[i];
 
 			for (int j = 0; j < 16; j++) {
 				JCheckBox jc = (JCheckBox) checkBoxList.get(j + (16 * i));
 				if (jc.isSelected()) {
 					trackList[j] = key;
-					System.out.println("bbb");
 				} else {
 					trackList[j] = 0;
-					System.out.println("ccc");
 				}
 			}
 
@@ -208,4 +220,72 @@ public class BeatBox {
 		return event;
 	}
 	
+	
+	private class SerializeListener implements ActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			boolean[] checkBoxState = new boolean[256];  // for the state of each checkBox
+			
+			// save the state of each checkBox
+			for (int i = 0; i < 256; i++) {
+				JCheckBox check = (JCheckBox) checkBoxList.get(i);
+				if (check.isSelected()) {
+					checkBoxState[i] = true;
+				}
+			}
+			
+			// serialize boolean array
+			try {
+				
+				JFileChooser fileSave = new JFileChooser();
+				fileSave.showSaveDialog(frame);  
+				FileOutputStream fileStream = new FileOutputStream(fileSave.getSelectedFile());
+				ObjectOutputStream os = new ObjectOutputStream(fileStream);
+				os.writeObject(checkBoxState);
+				os.close();
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+			
+		}
+
+	}
+	
+	
+	private class RestoreListener implements ActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			boolean[] checkBoxState = null;
+			
+			// read object (boolean array) from file 
+			try {
+				JFileChooser fileOpen = new JFileChooser();
+				fileOpen.showOpenDialog(frame);
+				FileInputStream fileIn = new FileInputStream(fileOpen.getSelectedFile());
+				ObjectInputStream is = new ObjectInputStream(fileIn);
+				checkBoxState = (boolean[]) is.readObject();
+				is.close();
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+			
+			// restore the state of each checkBox
+			for (int i = 0; i < 256; i++) {
+				JCheckBox check = (JCheckBox) checkBoxList.get(i);
+				if (checkBoxState[i]) {
+					check.setSelected(true);
+				} else {
+					check.setSelected(false);
+				}
+			}
+			
+			// stop the music and restore old state 
+			sequencer.stop();
+			buildTrackAndStart();
+			
+		}
+
+	}
 }
